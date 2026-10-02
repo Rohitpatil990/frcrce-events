@@ -322,3 +322,4 @@ This project is developed for academic purposes at FRCRCE.
 ---
 
 **Note**: This system is designed specifically for FRCRCE but follows standard architectural patterns applicable to any educational institution.
+# -frcrce-events
