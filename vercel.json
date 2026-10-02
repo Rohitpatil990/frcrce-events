@@ -8,9 +8,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": [
-        "frontend/**"
-      ]
+      "includeFiles": "frontend/**"
     }
   }
 }
