@@ -169,6 +169,22 @@ GitHub stores the source code but GitHub Pages cannot run this Express server or
 
 Create the first admin using the one-time setup script in Step 4. Keep all credentials in the host's secret manager and remove the setup variables afterward. Do not enable demo seeding in production.
 
+### Deploying a preview to Vercel
+
+The repository includes a Vercel serverless entry point and rewrite configuration. In Vercel, import `Rohitpatil990/-frcrce-events`, use the repository root as the Root Directory, leave the framework preset as **Other**, and leave the build and output directory fields empty. Vercel installs dependencies from `package-lock.json`.
+
+Add these Environment Variables in the Vercel project settings for the Preview and Production environments:
+
+- `NODE_ENV`: `production`
+- `MONGODB_URI`: connection string for a managed MongoDB database
+- `JWT_SECRET`: a unique random value of at least 32 characters
+
+Set `CORS_ORIGIN` only if the browser frontend and API use different origins; otherwise leave it unset for same-origin requests. Redeploy after adding or changing environment variables. Use a separate non-production database for Preview deployments.
+
+Vercel's function filesystem is temporary. For this preview, generated certificate PDFs are written under `/tmp` and can disappear between requests or deployments; certificate downloads are therefore not durable. Configure external persistent object storage before relying on certificates in production. Vercel functions are also request-based, so this deployment does not run a persistent background process.
+
+Create the initial administrator against the same managed database by running `npm run admin:create` locally with `MONGODB_URI`, `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` set in the terminal. Do not add bootstrap credentials or `.env` to Vercel or GitHub. After the one-time setup, remove the `ADMIN_*` variables from the terminal/session.
+
 The project includes basic API and page smoke tests. With the app running and a test database containing accounts for each role, set `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`, `TEST_FACULTY_EMAIL`, `TEST_FACULTY_PASSWORD`, `TEST_STUDENT_EMAIL`, and `TEST_STUDENT_PASSWORD`, then run:
 
 ```bash

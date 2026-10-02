@@ -26,9 +26,6 @@ if (process.env.NODE_ENV === 'production') {
 // Initialize express app
 const app = express();
 
-// Connect to database
-connectDB();
-
 // Middleware
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -47,7 +44,9 @@ if (process.env.NODE_ENV === 'production') {
 
 // Static files
 app.use(express.static(path.join(__dirname, 'frontend')));
-app.use('/certificates', express.static(path.join(__dirname, 'public/certificates')));
+const certificatePath = process.env.CERTIFICATE_PATH
+  || (process.env.VERCEL ? '/tmp/certificates' : path.join(__dirname, 'public/certificates'));
+app.use('/certificates', express.static(path.resolve(certificatePath)));
 
 // API Routes
 app.use('/api/auth', require('./backend/routes/authRoutes'));
@@ -83,20 +82,30 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log('🎓 Event Management System - FRCRCE');
-  console.log('='.repeat(50));
-  console.log(`✅ Server running in ${process.env.NODE_ENV || 'development'} mode`);
-  console.log(`🚀 Server started on port ${PORT}`);
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log('='.repeat(50));
-});
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
-  console.log(`Error: ${err.message}`);
-  server.close(() => process.exit(1));
-});
+  connectDB()
+    .then(() => {
+      const server = app.listen(PORT, () => {
+        console.log('='.repeat(50));
+        console.log('🎓 Event Management System - FRCRCE');
+        console.log('='.repeat(50));
+        console.log(`✅ Server running in ${process.env.NODE_ENV || 'development'} mode`);
+        console.log(`🚀 Server started on port ${PORT}`);
+        console.log(`📍 URL: http://localhost:${PORT}`);
+        console.log('='.repeat(50));
+      });
+
+      process.on('unhandledRejection', (error) => {
+        console.error(`Error: ${error.message}`);
+        server.close(() => process.exit(1));
+      });
+    })
+    .catch((error) => {
+      console.error(`Unable to start server: ${error.message}`);
+      process.exit(1);
+    });
+}
+
+module.exports = app;

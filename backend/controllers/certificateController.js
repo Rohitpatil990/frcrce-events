@@ -11,6 +11,11 @@ const { generateCertificatePDF } = require('../utils/certificateGenerator');
 const path = require('path');
 const fs = require('fs');
 
+const getCertificateDirectory = () => path.resolve(
+  process.env.CERTIFICATE_PATH
+  || (process.env.VERCEL ? '/tmp/certificates' : path.join(__dirname, '..', '..', 'public', 'certificates'))
+);
+
 // @desc    Generate certificates for event
 // @route   POST /api/certificates/event/:eventId/generate
 // @access  Private (Faculty only)
@@ -71,7 +76,9 @@ exports.generateCertificates = async (req, res, next) => {
       // Generate PDF
       const safeRollNumber = String(attendance.registration.user.rollNumber || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
       const fileName = `certificate_${safeRollNumber}_${event._id}.pdf`;
-      const filePath = path.join(process.env.CERTIFICATE_PATH || './public/certificates', fileName);
+      const certificateDirectory = getCertificateDirectory();
+      await fs.promises.mkdir(certificateDirectory, { recursive: true });
+      const filePath = path.join(certificateDirectory, fileName);
 
       await generateCertificatePDF({
         studentName: attendance.registration.user.name,
@@ -181,7 +188,7 @@ exports.downloadCertificate = async (req, res, next) => {
       });
     }
 
-    const filePath = path.join(__dirname, '..', '..', 'public', certificate.certificateUrl);
+    const filePath = path.join(getCertificateDirectory(), path.basename(certificate.certificateUrl));
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
