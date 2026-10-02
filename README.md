@@ -2,6 +2,8 @@
 
 A comprehensive web-based platform designed to streamline the planning, execution, and documentation of academic events at Fr. Conceicao Rodrigues College of Engineering (FRCRCE).
 
+**Live website:** [frcrce-events.vercel.app](https://frcrce-events.vercel.app/)
+
 ## 📋 Features
 
 ### Admin Features
