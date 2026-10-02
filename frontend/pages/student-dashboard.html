@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo">
+        </span>
+        <span>FRCRCE Events</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="student-dashboard.html">Browse Events</a></li>
+          <li><a href="my-registrations.html">My Registrations</a></li>
+          <li><a href="my-certificates.html">Certificates</a></li>
+          <li class="user-info">
+            <span class="user-name" id="userName"></span>
+            <span class="role-badge" style="background-color: #3b82f6;">Student</span>
+            <button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="container">
+      <h1 class="mb-4">Browse Events</h1>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <input type="text" id="searchInput" class="form-input" placeholder="Search events..." style="flex: 1;">
+            <select id="typeFilter" class="form-select">
+              <option value="">All Types</option>
+              <option value="Workshop">Workshop</option>
+              <option value="FDP">FDP</option>
+              <option value="Seminar">Seminar</option>
+              <option value="Technical">Technical</option>
+              <option value="Cultural">Cultural</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="events-grid" id="eventsGrid">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    utils.checkAuth();
+    const user = utils.getUserFromStorage();
+    if (user.role !== 'student') window.location.href = `/pages/${user.role}-dashboard.html`;
+    document.getElementById('userName').textContent = user.name;
+
+    let allEvents = [];
+
+    async function loadEvents() {
+      try {
+        const response = await eventAPI.getAllEvents();
+        allEvents = response.events;
+        displayEvents(allEvents);
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    }
+
+    function displayEvents(events) {
+      const grid = document.getElementById('eventsGrid');
+      if (events.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1;">No events available</p>';
+        return;
+      }
+
+      grid.innerHTML = events.map(event => `
+        <div class="event-card">
+          <div class="event-card-header">
+            <h3 class="event-card-title">${utils.escapeHtml(event.title)}</h3>
+            <span class="event-card-type">${utils.escapeHtml(event.type)}</span>
+          </div>
+          <div class="event-card-body">
+            <div class="event-detail">📅 ${utils.formatDate(event.startDate)}</div>
+            <div class="event-detail">🕒 ${utils.escapeHtml(event.startTime)} - ${utils.escapeHtml(event.endTime)}</div>
+            <div class="event-detail">📍 ${utils.escapeHtml(event.venue)}</div>
+            <div class="event-detail">👥 ${event.currentRegistrations}/${event.capacity} registered</div>
+          </div>
+          <div class="event-card-footer">
+            <span class="badge badge-${event.currentRegistrations < event.capacity ? 'success' : 'danger'}">
+              ${event.currentRegistrations < event.capacity ? 'Seats Available' : 'Full'}
+            </span>
+            <a href="event-details.html?id=${encodeURIComponent(event._id)}" class="btn btn-primary btn-small">View Details</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('searchInput').addEventListener('input', filterEvents);
+    document.getElementById('typeFilter').addEventListener('change', filterEvents);
+
+    function filterEvents() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const type = document.getElementById('typeFilter').value;
+
+      let filtered = allEvents;
+
+      if (search) {
+        filtered = filtered.filter(e => 
+          e.title.toLowerCase().includes(search) || 
+          e.description.toLowerCase().includes(search)
+        );
+      }
+
+      if (type) {
+        filtered = filtered.filter(e => e.type === type);
+      }
+
+      displayEvents(filtered);
+    }
+
+    loadEvents();
+  </script>
+</body>
+</html>

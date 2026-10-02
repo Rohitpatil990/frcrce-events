@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header"><div class="container header-content">
+    <div class="logo"><span class="logo-icon"><img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo"></span><span>FRCRCE Events</span></div>
+    <nav><ul class="nav-links"><li><a href="faculty-dashboard.html">My Events</a></li><li class="user-info"><span id="userName" class="user-name"></span><button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button></li></ul></nav>
+  </div></header>
+  <main class="main-content"><div class="container">
+    <section class="card"><div class="card-header"><h1 id="eventTitle" class="card-title">Attendance</h1></div>
+      <form id="attendanceForm"><div id="attendees"><div class="spinner"></div></div><button id="saveButton" class="btn btn-primary mt-3" type="submit">Save attendance</button></form>
+      <button id="certificatesButton" class="btn btn-success mt-3" type="button">Generate certificates for present students</button>
+    </section>
+  </div></main>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!utils.checkAuth()) throw new Error('Authentication required');
+    const user = utils.getUserFromStorage();
+    if (!['faculty', 'admin'].includes(user.role)) window.location.href = `/pages/${user.role}-dashboard.html`;
+    const eventId = new URLSearchParams(location.search).get('id');
+    document.getElementById('userName').textContent = user.name;
+
+    async function loadAttendance() {
+      const attendees = document.getElementById('attendees');
+      try {
+        if (!eventId) throw new Error('Event ID is missing.');
+        const [{ event }, registrationsResponse, attendanceResponse] = await Promise.all([
+          eventAPI.getEvent(encodeURIComponent(eventId)),
+          registrationAPI.getEventRegistrations(encodeURIComponent(eventId)),
+          attendanceAPI.getEventAttendance(encodeURIComponent(eventId))
+        ]);
+        if (user.role === 'faculty' && event.createdBy?._id !== user.id) {
+          throw new Error('You are not authorized to manage this event.');
+        }
+        document.getElementById('eventTitle').textContent = `Attendance: ${event.title}`;
+        const existing = new Map(attendanceResponse.attendanceRecords.map((record) => [record.registration._id, record.present]));
+        const confirmed = registrationsResponse.registrations.filter((registration) => registration.status === 'Confirmed');
+        attendees.innerHTML = confirmed.length ? `<div class="table-container"><table class="table">
+          <thead><tr><th>Student</th><th>Roll number</th><th>Present</th></tr></thead><tbody>
+          ${confirmed.map((registration) => `<tr><td>${utils.escapeHtml(registration.user.name)}</td>
+            <td>${utils.escapeHtml(registration.user.rollNumber || '—')}</td>
+            <td><input type="checkbox" name="present" value="${registration._id}" aria-label="Mark ${utils.escapeHtml(registration.user.name)} present" ${existing.get(registration._id) ? 'checked' : ''}></td>
+          </tr>`).join('')}</tbody></table></div>` : '<p>No confirmed registrations for this event yet.</p>';
+        document.getElementById('saveButton').disabled = confirmed.length === 0;
+        document.getElementById('certificatesButton').disabled = confirmed.length === 0;
+      } catch (error) {
+        attendees.innerHTML = `<p class="alert alert-error">${utils.escapeHtml(error.message)}</p>`;
+        document.getElementById('saveButton').disabled = true;
+        document.getElementById('certificatesButton').disabled = true;
+      }
+    }
+
+    document.getElementById('attendanceForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const checked = new Set([...event.currentTarget.querySelectorAll('input[name="present"]:checked')].map((input) => input.value));
+      const all = [...event.currentTarget.querySelectorAll('input[name="present"]')];
+      try {
+        const result = await attendanceAPI.markAttendance(encodeURIComponent(eventId), {
+          attendanceData: all.map((input) => ({ registrationId: input.value, present: checked.has(input.value) }))
+        });
+        utils.showAlert(`${result.count} attendance records saved.`, 'success');
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    });
+    document.getElementById('certificatesButton').addEventListener('click', async () => {
+      try {
+        const result = await certificateAPI.generateCertificates(encodeURIComponent(eventId));
+        utils.showAlert(result.message, 'success');
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    });
+    loadAttendance();
+  </script>
+</body>
+</html>

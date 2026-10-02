@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Event - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo"><span class="logo-icon"><img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo"></span><span>FRCRCE Events</span></div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="faculty-dashboard.html">My Events</a></li>
+          <li class="user-info">
+            <span class="user-name" id="userName"></span>
+            <button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="container">
+      <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <div class="card-header">
+          <h2 class="card-title">Create New Event</h2>
+        </div>
+        <div class="card-body">
+          <form id="eventForm">
+            <div class="form-group">
+              <label class="form-label">Event Title *</label>
+              <input type="text" name="title" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Event Type *</label>
+              <select name="type" class="form-select" required>
+                <option value="">Select Type</option>
+                <option value="Workshop">Workshop</option>
+                <option value="FDP">FDP</option>
+                <option value="Seminar">Seminar</option>
+                <option value="Technical">Technical</option>
+                <option value="Cultural">Cultural</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description *</label>
+              <textarea name="description" class="form-textarea" required></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Start Date *</label>
+                <input type="date" name="startDate" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Date *</label>
+                <input type="date" name="endDate" class="form-input" required>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Start Time *</label>
+                <input type="time" name="startTime" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Time *</label>
+                <input type="time" name="endTime" class="form-input" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Venue *</label>
+              <input type="text" name="venue" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Capacity *</label>
+              <input type="number" name="capacity" class="form-input" min="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Resource Person</label>
+              <input type="text" name="resourcePerson" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prerequisites</label>
+              <input type="text" name="prerequisites" class="form-input" placeholder="None">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Registration Deadline</label>
+              <input type="date" name="registrationDeadline" class="form-input">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Submit for Approval</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    utils.checkAuth();
+    const user = utils.getUserFromStorage();
+    if (user.role !== 'faculty') window.location.href = `/pages/${user.role}-dashboard.html`;
+    document.getElementById('userName').textContent = user.name;
+
+    document.getElementById('eventForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        utils.showLoading();
+        await eventAPI.createEvent(data);
+        utils.hideLoading();
+        utils.showAlert('Event created and submitted for approval!', 'success');
+        setTimeout(() => window.location.href = 'faculty-dashboard.html', 2000);
+      } catch (error) {
+        utils.hideLoading();
+        utils.showAlert(error.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

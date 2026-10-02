@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Events - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo"><span class="logo-icon"><img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo"></span><span>FRCRCE Events</span></div>
+      <nav><ul class="nav-links">
+        <li><a href="admin-dashboard.html">Dashboard</a></li>
+        <li><a href="admin-events.html">Events</a></li>
+        <li><a href="admin-users.html">Users</a></li>
+        <li class="user-info"><span class="user-name" id="userName"></span><span class="role-badge">Admin</span><button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button></li>
+      </ul></nav>
+    </div>
+  </header>
+  <main class="main-content"><div class="container">
+    <div class="card">
+      <div class="card-header"><h1 class="card-title">Manage Events</h1>
+        <select id="statusFilter" class="form-select" style="max-width: 220px">
+          <option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option><option>Completed</option>
+        </select>
+      </div>
+      <div id="eventsContainer"><div class="spinner"></div></div>
+    </div>
+  </div></main>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!utils.checkAuth()) throw new Error('Authentication required');
+    const user = utils.getUserFromStorage();
+    if (user.role !== 'admin') window.location.href = `/pages/${user.role}-dashboard.html`;
+    document.getElementById('userName').textContent = user.name;
+
+    async function loadEvents() {
+      const container = document.getElementById('eventsContainer');
+      try {
+        const response = await eventAPI.getAllEvents();
+        const status = document.getElementById('statusFilter').value;
+        const events = response.events.filter((event) => !status || event.status === status);
+        if (!events.length) {
+          container.innerHTML = '<p>No events match this filter.</p>';
+          return;
+        }
+        container.innerHTML = `<div class="table-container"><table class="table">
+          <thead><tr><th>Event</th><th>Type</th><th>Date</th><th>Created by</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>${events.map((event) => `<tr>
+            <td>${utils.escapeHtml(event.title)}</td><td>${utils.escapeHtml(event.type)}</td>
+            <td>${utils.escapeHtml(utils.formatDate(event.startDate))}</td>
+            <td>${utils.escapeHtml(event.createdBy?.name || '—')}</td>
+            <td>${utils.escapeHtml(event.status)}</td>
+            <td><a class="btn btn-secondary btn-small" href="event-details.html?id=${encodeURIComponent(event._id)}">View</a>
+            ${event.status === 'Pending' ? `<button class="btn btn-success btn-small" onclick="reviewEvent('${event._id}', 'Approved')">Approve</button>
+            <button class="btn btn-danger btn-small" onclick="reviewEvent('${event._id}', 'Rejected')">Reject</button>` : ''}</td>
+          </tr>`).join('')}</tbody></table></div>`;
+      } catch (error) {
+        container.innerHTML = `<p class="alert alert-error">${utils.escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function reviewEvent(id, status) {
+      try {
+        await eventAPI.approveEvent(id, { status, adminRemarks: '' });
+        utils.showAlert(`Event ${status.toLowerCase()}.`, 'success');
+        await loadEvents();
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', loadEvents);
+    loadEvents();
+  </script>
+</body>
+</html>

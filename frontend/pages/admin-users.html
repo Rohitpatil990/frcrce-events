@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Users - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo"><span class="logo-icon"><img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo"></span><span>FRCRCE Events</span></div>
+      <nav><ul class="nav-links">
+        <li><a href="admin-dashboard.html">Dashboard</a></li><li><a href="admin-events.html">Events</a></li><li><a href="admin-users.html">Users</a></li>
+        <li class="user-info"><span class="user-name" id="userName"></span><span class="role-badge">Admin</span><button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button></li>
+      </ul></nav>
+    </div>
+  </header>
+  <main class="main-content"><div class="container">
+    <section class="card">
+      <div class="card-header"><h1 class="card-title">Create Account</h1></div>
+      <form id="createUserForm">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem">
+          <div class="form-group"><label class="form-label" for="name">Name</label><input class="form-input" id="name" name="name" required></div>
+          <div class="form-group"><label class="form-label" for="email">Email</label><input class="form-input" id="email" name="email" type="email" required></div>
+          <div class="form-group"><label class="form-label" for="password">Temporary password</label><input class="form-input" id="password" name="password" type="password" minlength="12" autocomplete="new-password" required></div>
+          <div class="form-group"><label class="form-label" for="role">Role</label><select class="form-select" id="role" name="role"><option value="student">Student</option><option value="faculty">Faculty</option><option value="admin">Admin</option></select></div>
+          <div class="form-group"><label class="form-label" for="department">Department</label><input class="form-input" id="department" name="department"></div>
+          <div class="form-group student-field"><label class="form-label" for="rollNumber">Roll number</label><input class="form-input" id="rollNumber" name="rollNumber"></div>
+          <div class="form-group student-field"><label class="form-label" for="year">Year</label><select class="form-select" id="year" name="year"><option value="">Select year</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+          <div class="form-group"><label class="form-label" for="phone">Phone</label><input class="form-input" id="phone" name="phone" type="tel"></div>
+        </div>
+        <button class="btn btn-primary" type="submit">Create account</button>
+      </form>
+    </section>
+    <section class="card">
+      <div class="card-header"><h2 class="card-title">Users</h2><input id="search" class="form-input" style="max-width:280px" placeholder="Search name, email or roll number"></div>
+      <div id="usersContainer"><div class="spinner"></div></div>
+    </section>
+  </div></main>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!utils.checkAuth()) throw new Error('Authentication required');
+    const currentUser = utils.getUserFromStorage();
+    if (currentUser.role !== 'admin') window.location.href = `/pages/${currentUser.role}-dashboard.html`;
+    document.getElementById('userName').textContent = currentUser.name;
+
+    const roleInput = document.getElementById('role');
+    function updateRoleFields() {
+      const isStudent = roleInput.value === 'student';
+      document.querySelectorAll('.student-field').forEach((field) => {
+        field.hidden = !isStudent;
+        field.querySelector('input,select').required = isStudent;
+      });
+      document.getElementById('department').required = isStudent || roleInput.value === 'faculty';
+    }
+    roleInput.addEventListener('change', updateRoleFields);
+    updateRoleFields();
+
+    async function loadUsers() {
+      const container = document.getElementById('usersContainer');
+      try {
+        const search = document.getElementById('search').value.trim();
+        const response = await adminAPI.getAllUsers(search ? `search=${encodeURIComponent(search)}` : '');
+        container.innerHTML = `<div class="table-container"><table class="table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>${response.users.map((user) => `<tr>
+            <td>${utils.escapeHtml(user.name)}</td><td>${utils.escapeHtml(user.email)}</td>
+            <td>${utils.escapeHtml(user.role)}</td><td>${utils.escapeHtml(user.department || '—')}</td>
+            <td>${user.isActive ? 'Active' : 'Inactive'}</td>
+            <td>${user._id === currentUser.id ? 'Current account' : `<button class="btn btn-small ${user.isActive ? 'btn-danger' : 'btn-success'}" onclick="toggleStatus('${user._id}')">${user.isActive ? 'Deactivate' : 'Activate'}</button>`}</td>
+          </tr>`).join('') || '<tr><td colspan="6">No users found.</td></tr>'}</tbody></table></div>`;
+      } catch (error) {
+        container.innerHTML = `<p class="alert alert-error">${utils.escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    async function toggleStatus(id) {
+      if (!confirm('Change this account’s active status?')) return;
+      try {
+        await adminAPI.toggleUserStatus(id);
+        await loadUsers();
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    }
+
+    document.getElementById('createUserForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(event.currentTarget));
+      if (!data.year) delete data.year;
+      else data.year = Number(data.year);
+      try {
+        await adminAPI.createUser(data);
+        event.currentTarget.reset();
+        updateRoleFields();
+        utils.showAlert('Account created.', 'success');
+        await loadUsers();
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    });
+
+    let searchTimer;
+    document.getElementById('search').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadUsers, 250);
+    });
+    loadUsers();
+  </script>
+</body>
+</html>

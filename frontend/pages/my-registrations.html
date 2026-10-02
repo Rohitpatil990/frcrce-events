@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Registrations - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header"><div class="container header-content">
+    <div class="logo"><span class="logo-icon"><img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo"></span><span>FRCRCE Events</span></div>
+    <nav><ul class="nav-links"><li><a href="student-dashboard.html">Browse Events</a></li><li><a href="my-registrations.html">My Registrations</a></li><li><a href="my-certificates.html">Certificates</a></li><li class="user-info"><span id="userName" class="user-name"></span><button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button></li></ul></nav>
+  </div></header>
+  <main class="main-content"><div class="container"><section class="card">
+    <div class="card-header"><h1 class="card-title">My Registrations</h1></div><div id="registrations"><div class="spinner"></div></div>
+  </section></div></main>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!utils.checkAuth()) throw new Error('Authentication required');
+    const user = utils.getUserFromStorage();
+    if (user.role !== 'student') window.location.href = `/pages/${user.role}-dashboard.html`;
+    document.getElementById('userName').textContent = user.name;
+
+    async function loadRegistrations() {
+      const container = document.getElementById('registrations');
+      try {
+        const { registrations } = await registrationAPI.getMyRegistrations();
+        container.innerHTML = registrations.length ? `<div class="table-container"><table class="table">
+          <thead><tr><th>Event</th><th>Date</th><th>Venue</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+          ${registrations.map((registration) => `<tr><td>${utils.escapeHtml(registration.event?.title || 'Event unavailable')}</td>
+            <td>${registration.event?.startDate ? utils.escapeHtml(utils.formatDate(registration.event.startDate)) : '—'}</td>
+            <td>${utils.escapeHtml(registration.event?.venue || '—')}</td><td>${utils.escapeHtml(registration.status)}</td>
+            <td>${registration.status === 'Confirmed' ? `<button class="btn btn-danger btn-small" onclick="cancelRegistration('${registration._id}')">Cancel</button>
+              <button class="btn btn-secondary btn-small" onclick="document.getElementById('feedback-${registration._id}').hidden = false">Feedback</button>
+              <form id="feedback-${registration._id}" class="mt-2" hidden onsubmit="submitFeedback(event, '${registration._id}')">
+                <label class="form-label">Rating
+                  <select class="form-select" name="rating" required><option value="">Choose rating</option><option value="5">5 - Excellent</option><option value="4">4 - Good</option><option value="3">3 - Average</option><option value="2">2 - Poor</option><option value="1">1 - Very poor</option></select>
+                </label>
+                <label class="form-label">Comment<textarea class="form-textarea" name="comment" maxlength="1000"></textarea></label>
+                <button class="btn btn-primary btn-small" type="submit">Send feedback</button>
+              </form>` : '—'}</td></tr>`).join('')}
+          </tbody></table></div>` : '<p>You have no event registrations yet.</p>';
+      } catch (error) {
+        container.innerHTML = `<p class="alert alert-error">${utils.escapeHtml(error.message)}</p>`;
+      }
+    }
+    async function cancelRegistration(id) {
+      try {
+        await registrationAPI.cancelRegistration(id);
+        utils.showAlert('Registration cancelled.', 'success');
+        await loadRegistrations();
+      } catch (error) { utils.showAlert(error.message, 'error'); }
+    }
+    async function submitFeedback(event, id) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const rating = Number(new FormData(form).get('rating'));
+      const comment = new FormData(form).get('comment') || '';
+      try {
+        await registrationAPI.submitFeedback(id, { rating, comment });
+        utils.showAlert('Feedback submitted.', 'success');
+        form.hidden = true;
+      } catch (error) { utils.showAlert(error.message, 'error'); }
+    }
+    loadRegistrations();
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Faculty Dashboard - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo">
+        </span>
+        <span>FRCRCE Events</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="faculty-dashboard.html">My Events</a></li>
+          <li><a href="create-event.html" class="btn btn-success btn-small">+ Create Event</a></li>
+          <li class="user-info">
+            <span class="user-name" id="userName"></span>
+            <span class="role-badge" style="background-color: #10b981;">Faculty</span>
+            <button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="container">
+      <h1 class="mb-4">My Events</h1>
+
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Your Events</h2>
+          <a href="create-event.html" class="btn btn-primary">Create New Event</a>
+        </div>
+        <div class="card-body">
+          <div id="eventsContainer">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    utils.checkAuth();
+    const user = utils.getUserFromStorage();
+    if (user.role !== 'faculty') window.location.href = `/pages/${user.role}-dashboard.html`;
+    document.getElementById('userName').textContent = user.name;
+
+    async function loadEvents() {
+      try {
+        const response = await eventAPI.getAllEvents();
+        displayEvents(response.events);
+        updateStats(response.events);
+      } catch (error) {
+        utils.showAlert(error.message, 'error');
+      }
+    }
+
+    function updateStats(events) {
+      const pending = events.filter(e => e.status === 'Pending').length;
+      const approved = events.filter(e => e.status === 'Approved').length;
+      const completed = events.filter(e => e.status === 'Completed').length;
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-icon blue">📅</div>
+          <div class="stat-details">
+            <h3>${events.length}</h3>
+            <p>Total Events</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏳</div>
+          <div class="stat-details">
+            <h3>${pending}</h3>
+            <p>Pending</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✓</div>
+          <div class="stat-details">
+            <h3>${approved}</h3>
+            <p>Approved</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">✓</div>
+          <div class="stat-details">
+            <h3>${completed}</h3>
+            <p>Completed</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function displayEvents(events) {
+      const container = document.getElementById('eventsContainer');
+      if (events.length === 0) {
+        container.innerHTML = '<p>No events found. Create your first event!</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Registrations</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${events.map(event => `
+              <tr>
+                <td>${utils.escapeHtml(event.title)}</td>
+                <td><span class="badge badge-info">${utils.escapeHtml(event.type)}</span></td>
+                <td>${utils.escapeHtml(utils.formatDate(event.startDate))}</td>
+                <td><span class="badge badge-${getStatusClass(event.status)}">${utils.escapeHtml(event.status)}</span></td>
+                <td>${event.currentRegistrations}/${event.capacity}</td>
+                <td>
+                  <a href="event-details.html?id=${encodeURIComponent(event._id)}" class="btn btn-secondary btn-small">View</a>
+                  ${event.status === 'Approved' ? 
+                    `<a href="attendance.html?id=${encodeURIComponent(event._id)}" class="btn btn-primary btn-small">Attendance</a>` : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function getStatusClass(status) {
+      return {Pending: 'warning', Approved: 'success', Rejected: 'danger', Completed: 'info'}[status] || 'info';
+    }
+
+    loadEvents();
+  </script>
+</body>
+</html>

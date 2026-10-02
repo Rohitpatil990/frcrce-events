@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Event Management System</title>
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo">
+        <span class="logo-icon">
+          <img src="../assets/college-logo.jpg" alt="FRCRCE Logo" class="college-logo">
+        </span>
+        <span>FRCRCE Events</span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="admin-dashboard.html">Dashboard</a></li>
+          <li><a href="admin-events.html">Events</a></li>
+          <li><a href="admin-users.html">Users</a></li>
+          <li class="user-info">
+            <span class="user-name" id="userName"></span>
+            <span class="role-badge">Admin</span>
+            <button class="btn btn-secondary btn-small" onclick="utils.logout()">Logout</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="container">
+      <h1 class="mb-4">Admin Dashboard</h1>
+
+      <!-- Statistics Cards -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- Stats will be loaded here dynamically -->
+      </div>
+
+      <!-- Pending Approvals -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Pending Event Approvals</h2>
+        </div>
+        <div class="card-body">
+          <div id="pendingEventsContainer">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Events -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Recent Events</h2>
+        </div>
+        <div class="card-body">
+          <div id="recentEventsContainer">
+            <!-- Recent events will be loaded here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    // Check authentication
+    utils.checkAuth();
+    const user = utils.getUserFromStorage();
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      window.location.href = `/pages/${user.role}-dashboard.html`;
+    }
+
+    document.getElementById('userName').textContent = user.name;
+
+    // Load dashboard data
+    async function loadDashboard() {
+      try {
+        const stats = await adminAPI.getDashboardStats();
+
+        // Display statistics
+        displayStats(stats.stats);
+
+        // Display pending events
+        displayPendingEvents(stats.stats.recentEvents.filter(e => e.status === 'Pending'));
+
+        // Display recent events
+        displayRecentEvents(stats.stats.recentEvents);
+
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        utils.showAlert('Failed to load dashboard data', 'error');
+      }
+    }
+
+    function displayStats(stats) {
+      const statsGrid = document.getElementById('statsGrid');
+      statsGrid.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-icon blue">👥</div>
+          <div class="stat-details">
+            <h3>${stats.users.total}</h3>
+            <p>Total Users</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">📅</div>
+          <div class="stat-details">
+            <h3>${stats.events.total}</h3>
+            <p>Total Events</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏳</div>
+          <div class="stat-details">
+            <h3>${stats.events.pending}</h3>
+            <p>Pending Approvals</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">📝</div>
+          <div class="stat-details">
+            <h3>${stats.registrations.total}</h3>
+            <p>Total Registrations</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function displayPendingEvents(events) {
+      const container = document.getElementById('pendingEventsContainer');
+
+      if (events.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280;">No pending approvals</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Event Title</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Created By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${events.map(event => `
+                <tr>
+                  <td>${utils.escapeHtml(event.title)}</td>
+                  <td><span class="badge badge-info">${utils.escapeHtml(event.type)}</span></td>
+                  <td>${utils.escapeHtml(utils.formatDate(event.startDate))}</td>
+                  <td>${utils.escapeHtml(event.createdBy?.name || 'N/A')}</td>
+                  <td>
+                    <button class="btn btn-success btn-small" onclick="approveEvent('${event._id}', 'Approved')">
+                      Approve
+                    </button>
+                    <button class="btn btn-danger btn-small" onclick="approveEvent('${event._id}', 'Rejected')">
+                      Reject
+                    </button>
+                    <a href="event-details.html?id=${encodeURIComponent(event._id)}" class="btn btn-secondary btn-small">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function displayRecentEvents(events) {
+      const container = document.getElementById('recentEventsContainer');
+
+      if (events.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280;">No recent events</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Event Title</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${events.slice(0, 10).map(event => `
+                <tr>
+                  <td>${utils.escapeHtml(event.title)}</td>
+                  <td><span class="badge badge-info">${utils.escapeHtml(event.type)}</span></td>
+                  <td><span class="badge badge-${getStatusBadgeClass(event.status)}">${utils.escapeHtml(event.status)}</span></td>
+                  <td>${utils.escapeHtml(utils.formatDate(event.startDate))}</td>
+                  <td>
+                    <a href="event-details.html?id=${encodeURIComponent(event._id)}" class="btn btn-secondary btn-small">
+                      View Details
+                    </a>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function approveEvent(eventId, status) {
+      try {
+        utils.showLoading();
+        await eventAPI.approveEvent(eventId, { status, adminRemarks: '' });
+        utils.hideLoading();
+        utils.showAlert(`Event ${status.toLowerCase()} successfully`, 'success');
+        loadDashboard(); // Reload dashboard
+      } catch (error) {
+        utils.hideLoading();
+        utils.showAlert(error.message, 'error');
+      }
+    }
+
+    function getStatusBadgeClass(status) {
+      const statusMap = {
+        'Pending': 'warning',
+        'Approved': 'success',
+        'Rejected': 'danger',
+        'Completed': 'info',
+        'Cancelled': 'danger'
+      };
+      return statusMap[status] || 'info';
+    }
+
+    // Load dashboard on page load
+    loadDashboard();
+  </script>
+</body>
+</html>
